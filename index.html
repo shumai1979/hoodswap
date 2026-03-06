@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HoodSwap — Robinhood Chain Testnet</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #060a06; --surface: #0c120c; --card: #111911; --card2: #141f14;
+      --border: #1e2e1e; --border2: #2a3e2a;
+      --green: #00c805; --green2: #00ff08; --green-dim: rgba(0,200,5,0.12); --green-glow: rgba(0,200,5,0.25);
+      --red: #ff3b30; --red-dim: rgba(255,59,48,0.12);
+      --text: #e8f0e8; --text2: #a0b8a0; --muted: #4a644a; --gold: #d4a017;
+      --mono: 'IBM Plex Mono', monospace; --sans: 'DM Sans', sans-serif; --display: 'Bebas Neue', sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; overflow-x: hidden; }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image: linear-gradient(rgba(0,200,5,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,200,5,0.03) 1px, transparent 1px);
+      background-size: 40px 40px; pointer-events: none; z-index: 0;
+    }
+
+    /* TOPBAR */
+    .topbar {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(6,10,6,0.92); backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 56px;
+    }
+    .logo { font-family: var(--display); font-size: 1.8rem; letter-spacing: 0.04em; }
+    .logo .sw { color: var(--green); }
+    .topbar-right { display: flex; align-items: center; gap: 12px; }
+    .net-pill {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--green-dim); border: 1px solid rgba(0,200,5,0.3);
+      border-radius: 6px; padding: 5px 12px;
+      font-family: var(--mono); font-size: 0.65rem; color: var(--green); letter-spacing: 0.05em;
+    }
+    .net-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: blink 2s ease-in-out infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+    .wallet-btn {
+      font-family: var(--mono); font-size: 0.72rem;
+      background: none; border: 1px solid var(--border2); color: var(--text2);
+      padding: 6px 14px; border-radius: 6px; cursor: pointer; transition: all 0.2s;
+    }
+    .wallet-btn:hover, .wallet-btn.connected { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+
+    /* TABS */
+    .tabs { position: relative; z-index: 1; display: flex; padding: 20px 24px 0; max-width: 1100px; margin: 0 auto; }
+    .tab {
+      font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 10px 20px; background: none; border: 1px solid transparent; border-bottom: none;
+      color: var(--muted); cursor: pointer; border-radius: 8px 8px 0 0; transition: all 0.2s;
+    }
+    .tab.active { background: var(--card); border-color: var(--border); color: var(--green); }
+    .tab:not(.active):hover { color: var(--text2); }
+
+    /* MAIN */
+    .main { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 24px 40px; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeUp 0.25s ease; }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+    /* SWAP LAYOUT */
+    .swap-layout { display: grid; grid-template-columns: 460px 1fr; gap: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+
+    /* SWAP CARD */
+    .swap-card { background: var(--card); border: 1px solid var(--border); border-radius: 0 12px 12px 12px; padding: 24px; }
+    .swap-label { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
+
+    .token-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 4px; transition: border-color 0.2s; }
+    .token-box:focus-within { border-color: var(--green); }
+    .tok-row-top { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 0.63rem; color: var(--muted); margin-bottom: 10px; }
+    .bal-click { cursor: pointer; transition: color 0.2s; }
+    .bal-click:hover { color: var(--green); }
+    .tok-row-main { display: flex; align-items: center; gap: 10px; }
+    .amt-input { flex: 1; background: none; border: none; outline: none; font-family: var(--mono); font-size: 2rem; font-weight: 500; color: var(--text); width: 100%; min-width: 0; }
+    .amt-input::placeholder { color: var(--border2); }
+    .amt-input[readonly] { color: var(--text2); }
+    .amt-usd { font-family: var(--mono); font-size: 0.68rem; color: var(--muted); margin-top: 4px; }
+
+    .tok-sel {
+      display: flex; align-items: center; gap: 7px;
+      background: var(--card2); border: 1px solid var(--border2); border-radius: 20px;
+      padding: 7px 12px; cursor: pointer; white-space: nowrap; transition: all 0.2s; font-weight: 600; font-size: 0.88rem;
+    }
+    .tok-sel:hover { border-color: var(--green); background: var(--green-dim); }
+    .tok-icon { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 0.52rem; font-weight: 600; }
+
+    .arrow-wrap { display: flex; justify-content: center; margin: 6px 0; position: relative; z-index: 2; }
+    .arrow-btn {
+      background: var(--card2); border: 1px solid var(--border2); border-radius: 8px;
+      width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--green); font-size: 1rem; transition: all 0.25s;
+    }
+    .arrow-btn:hover { border-color: var(--green); background: var(--green-dim); transform: rotate(180deg); }
+
+    .swap-meta { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin: 14px 0; font-family: var(--mono); font-size: 0.65rem; }
+    .meta-row { display: flex; justify-content: space-between; color: var(--muted); padding: 3px 0; }
+    .meta-row span:last-child { color: var(--text2); }
+    .meta-green { color: var(--green) !important; }
+
+    .fee-selector { display: flex; gap: 6px; margin: 10px 0; }
+    .fee-btn { flex: 1; padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: var(--mono); font-size: 0.62rem; cursor: pointer; transition: all 0.2s; text-align: center; }
+    .fee-btn:hover, .fee-btn.active { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+
+    .main-btn {
+      width: 100%; padding: 16px; background: var(--green); color: #000;
+      border: none; border-radius: 10px; font-family: var(--display); font-size: 1.3rem;
+      letter-spacing: 0.06em; cursor: pointer; transition: all 0.2s;
+    }
+    .main-btn:hover { background: var(--green2); box-shadow: 0 0 30px var(--green-glow); transform: translateY(-1px); }
+    .main-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; transform: none; box-shadow: none; }
+    .main-btn.outline { background: transparent; color: var(--green); border: 1px solid var(--green); }
+    .main-btn.outline:hover { background: var(--green-dim); box-shadow: 0 0 20px var(--green-glow); }
+    .main-btn.approve-btn { background: var(--gold); color: #000; }
+    .main-btn.approve-btn:hover { background: #f0c030; box-shadow: 0 0 20px rgba(212,160,23,0.4); }
+
+    /* APPROVE WARNING */
+    .approve-notice {
+      background: rgba(212,160,23,0.08); border: 1px solid rgba(212,160,23,0.3);
+      border-radius: 8px; padding: 10px 14px; margin-bottom: 12px;
+      font-family: var(--mono); font-size: 0.65rem; color: var(--gold); display: none;
+    }
+    .approve-notice.show { display: block; }
+
+    /* RIGHT PANEL */
+    .right-panel { display: flex; flex-direction: column; gap: 16px; }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    .stat-label { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+    .stat-value { font-family: var(--display); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--green); line-height: 1; }
+    .stat-sub { font-family: var(--mono); font-size: 0.62rem; color: var(--muted); margin-top: 4px; }
+
+    .info-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    .info-title { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+    .info-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 0.82rem; }
+    .info-row:last-child { border-bottom: none; }
+    .info-row .k { color: var(--text2); font-family: var(--mono); font-size: 0.65rem; }
+    .info-row .v { font-family: var(--mono); font-size: 0.68rem; color: var(--text); }
+    .info-row .v a { color: var(--green); text-decoration: none; }
+    .info-row .v a:hover { text-decoration: underline; }
+
+    /* HISTORY */
+    .history-panel { padding-top: 20px; border-top: 1px solid var(--border); }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .panel-title { font-family: var(--display); font-size: 1.4rem; letter-spacing: 0.04em; }
+    .refresh-btn { font-family: var(--mono); font-size: 0.68rem; background: none; border: 1px solid var(--border2); color: var(--text2); padding: 6px 14px; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+    .refresh-btn:hover { border-color: var(--green); color: var(--green); }
+    .table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); background: var(--surface); }
+    td { padding: 12px 16px; font-family: var(--mono); font-size: 0.72rem; color: var(--text2); border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(0,200,5,0.03); }
+    .swap-badge { display: inline-flex; align-items: center; gap: 5px; background: var(--green-dim); border: 1px solid rgba(0,200,5,0.2); border-radius: 4px; padding: 3px 8px; font-size: 0.65rem; color: var(--green); white-space: nowrap; }
+    .tx-link { color: var(--green); text-decoration: none; }
+    .tx-link:hover { text-decoration: underline; }
+    .empty-state { padding: 48px 0; text-align: center; color: var(--muted); font-family: var(--mono); font-size: 0.75rem; }
+
+    /* DASHBOARD */
+    .dash-panel { padding-top: 20px; border-top: 1px solid var(--border); }
+    .dash-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+    .dash-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; position: relative; overflow: hidden; }
+    .dash-card::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: var(--green); transform: scaleX(0); transition: transform 0.3s; }
+    .dash-card:hover::after { transform: scaleX(1); }
+    .dash-label { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    .dash-val { font-family: var(--display); font-size: 2rem; color: var(--green); letter-spacing: 0.04em; line-height: 1; }
+    .dash-sub { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); margin-top: 6px; }
+    .balances-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+    .bal-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .bal-row:last-child { border-bottom: none; }
+    .bal-name { font-weight: 600; flex: 1; }
+    .bal-sub { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
+    .bal-amount { font-family: var(--mono); font-size: 0.8rem; color: var(--green); }
+
+    /* POOLS PANEL */
+    .pools-panel { padding-top: 20px; border-top: 1px solid var(--border); }
+    .pool-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
+    .pool-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; cursor: pointer; transition: all 0.2s; }
+    .pool-card:hover { border-color: var(--green); background: rgba(0,200,5,0.04); }
+    .pool-card.selected { border-color: var(--green); background: var(--green-dim); }
+    .pool-pair { font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
+    .pool-fee { font-family: var(--mono); font-size: 0.62rem; color: var(--muted); margin-bottom: 8px; }
+    .pool-price { font-family: var(--mono); font-size: 0.75rem; color: var(--green); }
+    .pool-addr { font-family: var(--mono); font-size: 0.55rem; color: var(--muted); margin-top: 4px; }
+
+    /* TOAST */
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border2); border-radius: 10px; padding: 14px 20px; font-family: var(--mono); font-size: 0.72rem; z-index: 999; transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1); white-space: nowrap; max-width: 90vw; overflow: hidden; }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.success { border-color: rgba(0,200,5,0.4); color: var(--green); }
+    .toast.error { border-color: rgba(255,59,48,0.4); color: var(--red); }
+    .toast.info { border-color: rgba(212,160,23,0.4); color: var(--gold); }
+
+    /* MODAL */
+    .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(6px); z-index: 200; align-items: center; justify-content: center; }
+    .modal-bg.open { display: flex; }
+    .modal-box { background: var(--card); border: 1px solid var(--border2); border-radius: 14px; padding: 24px; width: min(380px, 94vw); max-height: 80vh; overflow-y: auto; }
+    .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .modal-head-title { font-weight: 600; font-size: 0.95rem; }
+    .modal-x { background: none; border: none; color: var(--muted); font-size: 1.2rem; cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: color 0.2s; }
+    .modal-x:hover { color: var(--text); }
+    .modal-search { width: 100%; background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; padding: 10px 12px; color: var(--text); font-family: var(--mono); font-size: 0.78rem; outline: none; margin-bottom: 10px; transition: border-color 0.2s; }
+    .modal-search:focus { border-color: var(--green); }
+    .tok-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; cursor: pointer; transition: background 0.15s; }
+    .tok-item:hover { background: var(--surface); }
+    .tok-item-info { flex: 1; }
+    .tok-item-sym { font-weight: 600; font-size: 0.88rem; }
+    .tok-item-name { font-family: var(--mono); font-size: 0.63rem; color: var(--muted); }
+    .tok-item-bal { font-family: var(--mono); font-size: 0.72rem; color: var(--text2); }
+
+    /* WRAP */
+    .wrap-panel { padding-top: 20px; border-top: 1px solid var(--border); max-width: 500px; }
+    .wrap-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 14px; }
+    .wrap-label { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+    .wrap-input-row { display: flex; gap: 10px; align-items: center; }
+    .wrap-input { flex: 1; background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; padding: 12px; color: var(--text); font-family: var(--mono); font-size: 1rem; outline: none; transition: border-color 0.2s; }
+    .wrap-input:focus { border-color: var(--green); }
+    .max-btn { font-family: var(--mono); font-size: 0.65rem; background: var(--green-dim); border: 1px solid rgba(0,200,5,0.3); color: var(--green); padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+
+    @media(max-width:860px){ .swap-layout{grid-template-columns:1fr} .dash-grid{grid-template-columns:1fr 1fr} .pool-grid{grid-template-columns:1fr 1fr} }
+    @media(max-width:600px){ .topbar{padding:0 14px} .tabs{padding:14px 14px 0} .main{padding:0 14px 40px} .dash-grid{grid-template-columns:1fr 1fr} .net-pill{display:none} .pool-grid{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">Hood<span class="sw">Swap</span></div>
+  <div class="topbar-right">
+    <div class="net-pill"><div class="dot"></div>SYNTHRA V3 · ROBINHOOD TESTNET</div>
+    <div style="position:relative" id="walletWrap">
+      <button class="wallet-btn" id="walletBtn" onclick="toggleWalletMenu()">Connect Wallet</button>
+      <div id="walletMenu" style="display:none;position:absolute;right:0;top:calc(100% + 8px);background:var(--card);border:1px solid var(--border2);border-radius:10px;min-width:200px;z-index:100;overflow:hidden">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:0.65rem;color:var(--muted)">Connected</div>
+        <div id="walletMenuAddr" style="padding:10px 16px;font-family:var(--mono);font-size:0.7rem;color:var(--green);border-bottom:1px solid var(--border);cursor:pointer" onclick="copyAddress()">— click to copy</div>
+        <div style="padding:10px 16px;font-family:var(--mono);font-size:0.72rem;color:var(--text2);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''" onclick="openExplorer()">View on Explorer &#8599;</div>
+        <div style="padding:10px 16px;font-family:var(--mono);font-size:0.72rem;color:var(--red);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''" onclick="disconnectWallet()">Disconnect</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('swap',this)">Swap</button>
+  <button class="tab" onclick="switchTab('wrap',this)">Wrap ETH</button>
+  <button class="tab" onclick="switchTab('pools',this)">Pools</button>
+  <button class="tab" onclick="switchTab('history',this)">History</button>
+  <button class="tab" onclick="switchTab('dashboard',this)">Dashboard</button>
+</div>
+
+<div class="main">
+
+  <!-- SWAP -->
+  <div class="tab-content active" id="tab-swap">
+    <div class="swap-layout">
+      <div class="swap-card">
+        <div class="swap-label">// synthra v3 · real on-chain swaps</div>
+
+        <div class="token-box">
+          <div class="tok-row-top">
+            <span>You send</span>
+            <span class="bal-click" id="balFrom" onclick="setMax()">Balance: —</span>
+          </div>
+          <div class="tok-row-main">
+            <input class="amt-input" id="amtIn" type="number" placeholder="0.0" oninput="onAmtChange()"/>
+            <button class="tok-sel" onclick="openModal('from')">
+              <div class="tok-icon" id="iconFrom" style="background:#0d1220;color:#627eea">ETH</div>
+              <span id="symFrom">ETH</span>
+              <span style="color:var(--muted);font-size:0.75rem">&#9662;</span>
+            </button>
+          </div>
+          <div class="amt-usd" id="usdFrom">&#8776; $0.00</div>
+        </div>
+
+        <div class="arrow-wrap">
+          <button class="arrow-btn" onclick="flipTokens()">&#8645;</button>
+        </div>
+
+        <div class="token-box">
+          <div class="tok-row-top">
+            <span>You receive</span>
+            <span id="balTo">Balance: —</span>
+          </div>
+          <div class="tok-row-main">
+            <input class="amt-input" id="amtOut" type="number" placeholder="0.0" readonly/>
+            <button class="tok-sel" onclick="openModal('to')">
+              <div class="tok-icon" id="iconTo" style="background:#200a0a;color:#cc0000">TSL</div>
+              <span id="symTo">TSLA</span>
+              <span style="color:var(--muted);font-size:0.75rem">&#9662;</span>
+            </button>
+          </div>
+          <div class="amt-usd" id="usdTo">&#8776; $0.00</div>
+        </div>
+
+        <div style="margin:10px 0">
+          <div class="swap-label" style="margin-bottom:6px">Fee tier</div>
+          <div class="fee-selector">
+            <button class="fee-btn" onclick="setFee(500,this)">0.05%</button>
+            <button class="fee-btn active" onclick="setFee(3000,this)">0.3%</button>
+            <button class="fee-btn" onclick="setFee(10000,this)">1%</button>
+          </div>
+        </div>
+
+        <div class="swap-meta">
+          <div class="meta-row"><span>Pool</span><span id="poolAddr">—</span></div>
+          <div class="meta-row"><span>Rate</span><span id="rateDisplay">—</span></div>
+          <div class="meta-row"><span>Price impact</span><span id="impactDisplay">—</span></div>
+          <div class="meta-row"><span>Fee</span><span id="feeDisplay">0.3%</span></div>
+          <div class="meta-row"><span>Min received</span><span id="minOut">—</span></div>
+          <div class="meta-row"><span>Slippage</span><span id="slipDisplay" style="cursor:pointer;color:var(--green)" onclick="toggleSlip()">0.5% &#9998;</span></div>
+        </div>
+
+        <div id="slipBox" style="display:none;margin-bottom:10px">
+          <div class="fee-selector">
+            <button class="fee-btn" onclick="setSlip(0.1,this)">0.1%</button>
+            <button class="fee-btn active" onclick="setSlip(0.5,this)">0.5%</button>
+            <button class="fee-btn" onclick="setSlip(1,this)">1%</button>
+            <button class="fee-btn" onclick="setSlip(2,this)">2%</button>
+          </div>
+        </div>
+
+        <div class="approve-notice" id="approveNotice">
+          Need to approve <span id="approveToken">token</span> before swapping. Step 1 of 2.
+        </div>
+
+        <button class="main-btn approve-btn" id="approveBtn" onclick="doApprove()" style="display:none;margin-bottom:8px">
+          Approve <span id="approveBtnTok"></span>
+        </button>
+
+        <button class="main-btn outline" id="mainSwapBtn" onclick="handleSwap()">Connect Wallet</button>
+      </div>
+
+      <!-- RIGHT -->
+      <div class="right-panel">
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-label">Protocol</div><div class="stat-value">V3</div><div class="stat-sub">Synthra (Uni fork)</div></div>
+          <div class="stat-card"><div class="stat-label">Pools Live</div><div class="stat-value">60+</div><div class="stat-sub">on Robinhood testnet</div></div>
+          <div class="stat-card"><div class="stat-label">Your ETH</div><div class="stat-value" id="statEth">—</div><div class="stat-sub">native balance</div></div>
+          <div class="stat-card"><div class="stat-label">Your WETH</div><div class="stat-value" id="statWeth">—</div><div class="stat-sub">ERC-20 wrapped</div></div>
+        </div>
+
+        <div class="info-card">
+          <div class="info-title">// synthra v3 contracts</div>
+          <div class="info-row"><span class="k">Factory</span><span class="v"><a href="https://explorer.testnet.chain.robinhood.com/address/0x911b4000d3422f482f4062a913885f7b035382df" target="_blank">0x911b...82df</a></span></div>
+          <div class="info-row"><span class="k">Router</span><span class="v"><a href="https://explorer.testnet.chain.robinhood.com/address/0x3Ce954107b1A675826B33bF23060Dd655e3758fE" target="_blank">Synthra SwapRouter</a></span></div>
+          <div class="info-row"><span class="k">NFT Manager</span><span class="v"><a href="https://explorer.testnet.chain.robinhood.com/address/0x54A0EF7da351cb8fD1998E7945cc51E5825fB233" target="_blank">0x54A0...B233</a></span></div>
+          <div class="info-row"><span class="k">WETH</span><span class="v"><a href="https://explorer.testnet.chain.robinhood.com/address/0x33e4191705c386532ba27cBF171Db86919200B94" target="_blank">0x33e4...94</a></span></div>
+          <div class="info-row"><span class="k">Chain</span><span class="v">Robinhood Testnet (46630)</span></div>
+          <div class="info-row"><span class="k">Explorer</span><span class="v"><a href="https://explorer.testnet.chain.robinhood.com" target="_blank">explorer.testnet &#8599;</a></span></div>
+          <div class="info-row"><span class="k">Faucet</span><span class="v"><a href="https://faucet.testnet.chain.robinhood.com" target="_blank">faucet.testnet &#8599;</a></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WRAP -->
+  <div class="tab-content" id="tab-wrap">
+    <div class="wrap-panel">
+      <div class="panel-title" style="margin-bottom:20px;font-family:var(--display);font-size:1.4rem;letter-spacing:0.04em">Wrap / Unwrap ETH</div>
+      <div class="wrap-card">
+        <div class="wrap-label">// wrap eth to weth (official contract)</div>
+        <div class="wrap-input-row">
+          <input class="wrap-input" id="wrapAmt" type="number" placeholder="0.001" step="0.001"/>
+          <button class="max-btn" onclick="setWrapMax()">MAX</button>
+        </div>
+        <div style="margin-top:10px;font-family:var(--mono);font-size:0.65rem;color:var(--muted)">ETH Balance: <span id="wrapEthBal">—</span></div>
+        <button class="main-btn" style="margin-top:14px" onclick="doWrap()">Wrap ETH &#8594; WETH</button>
+      </div>
+      <div class="wrap-card">
+        <div class="wrap-label">// unwrap weth to eth</div>
+        <div class="wrap-input-row">
+          <input class="wrap-input" id="unwrapAmt" type="number" placeholder="0.001" step="0.001"/>
+          <button class="max-btn" onclick="setUnwrapMax()">MAX</button>
+        </div>
+        <div style="margin-top:10px;font-family:var(--mono);font-size:0.65rem;color:var(--muted)">WETH Balance: <span id="unwrapWethBal">—</span></div>
+        <button class="main-btn" style="margin-top:14px;background:var(--surface);color:var(--text);border:1px solid var(--border2)" onclick="doUnwrap()">Unwrap WETH &#8594; ETH</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- POOLS -->
+  <div class="tab-content" id="tab-pools">
+    <div class="pools-panel">
+      <div class="panel-header">
+        <div class="panel-title">Synthra V3 Pools</div>
+        <button class="refresh-btn" onclick="loadPools()">&#8635; Refresh</button>
+      </div>
+      <div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);margin-bottom:12px">
+        Click a pool to auto-fill the swap form with that pair.
+      </div>
+      <div class="pool-grid" id="poolGrid">
+        <div class="empty-state" style="grid-column:1/-1">Connect wallet to load pools</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="tab-content" id="tab-history">
+    <div class="history-panel">
+      <div class="panel-header">
+        <div class="panel-title">Swap History</div>
+        <button class="refresh-btn" onclick="loadHistory()">&#8635; Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Pair</th><th>Amount In</th><th>Amount Out</th><th>Fee</th><th>Wallet</th><th>TX</th></tr></thead>
+          <tbody id="historyBody"><tr><td colspan="6"><div class="empty-state">Connect wallet to load history</div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="tab-content" id="tab-dashboard">
+    <div class="dash-panel">
+      <div class="dash-grid">
+        <div class="dash-card"><div class="dash-label">ETH Balance</div><div class="dash-val" id="dEth">—</div><div class="dash-sub">native token</div></div>
+        <div class="dash-card"><div class="dash-label">WETH</div><div class="dash-val" id="dWeth">—</div><div class="dash-sub">wrapped ETH</div></div>
+        <div class="dash-card"><div class="dash-label">USDC</div><div class="dash-val" id="dUsdc">—</div><div class="dash-sub">stablecoin</div></div>
+        <div class="dash-card"><div class="dash-label">Stock Tokens</div><div class="dash-val" id="dStocks">5</div><div class="dash-sub">TSLA AMZN NFLX PLTR AMD</div></div>
+      </div>
+      <div class="balances-card">
+        <div class="info-title" style="font-family:var(--mono);font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:16px">// all token balances</div>
+        <div id="allBalances"><div class="empty-state" style="padding:24px 0">Connect wallet to view</div></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<div class="toast" id="toast"></div>
+
+<!-- TOKEN MODAL -->
+<div class="modal-bg" id="tokenModal">
+  <div class="modal-box">
+    <div class="modal-head"><span class="modal-head-title">Select Token</span><button class="modal-x" onclick="closeModal()">&#10005;</button></div>
+    <input class="modal-search" id="tokSearch" placeholder="Search..." oninput="filterToks()"/>
+    <div id="tokList"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  CONFIG — Synthra V3 on Robinhood Chain Testnet
+// ═══════════════════════════════════════════════════════
+const CHAIN_ID  = 46630;
+const RPC       = 'https://rpc.testnet.chain.robinhood.com';
+const EXPLORER  = 'https://explorer.testnet.chain.robinhood.com';
+
+// Synthra V3 contracts
+const SYNTHRA_FACTORY = '0x911b4000d3422f482f4062a913885f7b035382df';
+const SYNTHRA_ROUTER  = '0x3Ce954107b1A675826B33bF23060Dd655e3758fE'; // confirmed from on-chain txs
+
+// Real token contracts
+const TOKENS = [
+  { symbol:'ETH',  name:'Ethereum (Gas)',        address:'native',                                      color:'#627eea', bg:'#0d1220', decimals:18 },
+  { symbol:'WETH', name:'Wrapped ETH',            address:'0x33e4191705c386532ba27cBF171Db86919200B94', color:'#00c805', bg:'#0a1a0a', decimals:18 },
+  { symbol:'USDC', name:'USD Coin',               address:'0xbf4479C07Dc6fdc6dAa764A0ccA06969e894275F', color:'#2775ca', bg:'#0a1020', decimals:18 },
+  { symbol:'TSLA', name:'Tesla',                  address:'0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E', color:'#cc0000', bg:'#200a0a', decimals:18 },
+  { symbol:'AMZN', name:'Amazon',                 address:'0x5884aD2f920c162CFBbACc88C9C51AA75eC09E02', color:'#ff9900', bg:'#201400', decimals:18 },
+  { symbol:'NFLX', name:'Netflix',                address:'0x3b8262A63d25f0477c4DDE23F83cfe22Cb768C93', color:'#e50914', bg:'#200505', decimals:18 },
+  { symbol:'PLTR', name:'Palantir Technologies',  address:'0x1FBE1a0e43594b3455993B5dE5Fd0A7A266298d0', color:'#7c7cff', bg:'#0a0a20', decimals:18 },
+  { symbol:'AMD',  name:'AMD',                    address:'0x71178BAc73cBeb415514eB542a8995b82669778d', color:'#00aaff', bg:'#001520', decimals:18 },
+];
+
+// Known pools (fee=3000 as default, best liquidity)
+const POOLS = {
+  'WETH/USDC': { addr:'0x9640afcbc2310d011b7b71a76975e919d9b6fa4a', fee:3000 },
+  'WETH/TSLA': { addr:'0x593e2e0ef3869616ec3fbe989dcff2699d52b69b', fee:3000 },
+  'WETH/AMZN': { addr:'0x52da6b2ea089d0fb2054b057a88d8aa516cb54c3', fee:3000 },
+  'WETH/NFLX': { addr:'0x3274d3092aa2e1a9321ab2cb04697c87c5a389b0', fee:3000 },
+  'WETH/PLTR': { addr:'0x4dac9debe44d3aa104ab66f09debb40c59f4a283', fee:3000 },
+  'WETH/AMD':  { addr:'0x51cc359a19dfd16217cd6c186e1476f78768588d', fee:3000 },
+  'USDC/TSLA': { addr:'0xffef1147c3724a19ab7328f4e361c049ba452da9', fee:3000 },
+  'USDC/AMZN': { addr:'0x0a837200fb77687ba9b749e5174bd9a09e51286a', fee:3000 },
+  'USDC/NFLX': { addr:'0xcd8a64d13d5b99dc546a3d6ffd8e5c7dd0ecb1a0', fee:3000 },
+  'USDC/PLTR': { addr:'0x82a81e9edb32958104a2c9514b8fc85f972b53af', fee:3000 },
+  'USDC/AMD':  { addr:'0xae12d50f75ea3f4cf983af1272614754e7f5e813', fee:3000 },
+  'TSLA/AMZN': { addr:'0x07f39115f3c14bd30a381c0a5bb55fd804fcf799', fee:3000 },
+  'TSLA/NFLX': { addr:'0xd463abde38f40a412ac3bf06d14eebc8be17888f', fee:3000 },
+  'TSLA/AMD':  { addr:'0x97088c76bc40c052d586797753e331e3b4bb9bca', fee:3000 },
+  'TSLA/PLTR': { addr:'0x60bec5865c5b2ffb3f1293bd439cdd021f521042', fee:3000 },
+  'AMZN/NFLX': { addr:'0xe21a5fc1b6cd2113efe61268b7df6166cd50a6b4', fee:3000 },
+  'AMZN/AMD':  { addr:'0x2f107f30f6aea7f6de7391ac913c83a800846a89', fee:3000 },
+  'AMZN/PLTR': { addr:'0xbd28e5ae2a740556c5085c50957e25d0673478be', fee:3000 },
+  'NFLX/PLTR': { addr:'0x44dd8cf09ff6179f34bb58a27373d34d3a226bfc', fee:3000 },
+  'NFLX/AMD':  { addr:'0x046d61a5c0fb41c54974efe0da3667ab2223675d', fee:3000 },
+  'AMD/PLTR':  { addr:'0xcb69f61707c2a2221c6df39faab1cfbca33659eb', fee:3000 },
+};
+
+// Also pools with lower fees
+const POOLS_500 = {
+  'WETH/USDC': '0x9713eb44cca49f95b2d94ea7008e5ccd5aebddf1',
+  'WETH/TSLA': '0x14768ae6e6c655e9df62256b18d7df85501c24fc',
+  'WETH/AMZN': '0x5f05bc624115cd84d775346811c9cfe2131a4649',
+  'WETH/NFLX': '0x026f4e9e08b5d07e4c3e00bcf10a6a3456613fc5',
+  'WETH/AMD':  '0xa132e66edd001ddfd92bb453bd8c54906351cceb',
+  'WETH/PLTR': '0xe17a996e14cd652cee29f6af8b427b4641b9f6f0',
+  'USDC/TSLA': '0x8f1304370a11df1de9058597960686a01d747a72',
+  'USDC/AMZN': '0xf5a09091c37dd686e600f006d67eded37a76d6e9',
+  'USDC/NFLX': '0x1e56a3d850abb031f707571196245fe008346128',
+  'USDC/AMD':  '0x44697c5f09b301bc116859f0f5541167b7879b08',
+  'TSLA/AMZN': '0xa53de45eff01cb3b0f0080bb6b513559833f1474',
+  'TSLA/AMD':  '0xa410a40284682cd21fd6530bc05e663796f3e440',
+  'TSLA/PLTR': '0x05a538a68257abeed9a6621133aeffb5666c9bbf',
+  'AMZN/PLTR': '0xbad86693988eaa88084fbe964247ed5a4b5ab943',
+  'AMD/PLTR':  '0x8fafc8e278c20dabaeab929d0a6970f519895b61',
+};
+
+// State
+let wallet = null, connected = false;
+let tokFrom = TOKENS[0], tokTo = TOKENS[3]; // ETH -> TSLA
+let modalTarget = 'from', selectedFee = 3000, slippage = 0.5;
+let balances = {}, localHistory = [], currentPool = null, currentPoolAddr = null;
+let needsApproval = false, routerAddr = SYNTHRA_ROUTER;
+
+// ═══════════════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════════════
+function switchTab(id, el){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  el.classList.add('active');
+  if(id==='history' && connected) loadHistory();
+  if(id==='dashboard' && connected) loadDashboard();
+  if(id==='pools') loadPools();
+}
+
+// ═══════════════════════════════════════════════════════
+//  WALLET
+// ═══════════════════════════════════════════════════════
+async function handleWallet(){
+  if(connected){ toggleWalletMenu(); return; }
+  await connectWallet();
+}
+
+function toggleWalletMenu(){
+  if(!connected){ connectWallet(); return; }
+  const menu = document.getElementById('walletMenu');
+  menu.style.display = menu.style.display==='none' ? 'block' : 'none';
+  if(menu.style.display==='block'){
+    document.getElementById('walletMenuAddr').textContent = wallet;
+  }
+}
+
+function copyAddress(){
+  navigator.clipboard.writeText(wallet).then(()=>showToast('Address copied!','success'));
+  document.getElementById('walletMenu').style.display='none';
+}
+
+function openExplorer(){
+  window.open(EXPLORER+'/address/'+wallet,'_blank');
+  document.getElementById('walletMenu').style.display='none';
+}
+
+function disconnectWallet(){
+  connected=false; wallet=null;
+  document.getElementById('walletBtn').textContent='Connect Wallet';
+  document.getElementById('walletBtn').classList.remove('connected');
+  document.getElementById('walletMenu').style.display='none';
+  balances={};
+  updateSwapUI();
+  showToast('Wallet disconnected','info');
+}
+
+// Close menu on outside click
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('walletWrap');
+  if(wrap && !wrap.contains(e.target)){
+    const menu = document.getElementById('walletMenu');
+    if(menu) menu.style.display='none';
+  }
+});
+
+async function connectWallet(){
+  if(!window.ethereum){ showToast('MetaMask not found','error'); return; }
+  try {
+    showToast('Connecting...','info');
+    const accs = await window.ethereum.request({ method:'eth_requestAccounts' });
+    wallet = accs[0];
+    const cid = await window.ethereum.request({ method:'eth_chainId' });
+    if(parseInt(cid,16) !== CHAIN_ID) await switchNet();
+    connected = true;
+    document.getElementById('walletBtn').textContent = short(wallet);
+    document.getElementById('walletBtn').classList.add('connected');
+    await refreshAll();
+    showToast('Connected: '+short(wallet),'success');
+  } catch(e){ showToast('Error: '+e.message.substring(0,50),'error'); }
+}
+
+async function switchNet(){
+  try {
+    await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{chainId:'0x'+CHAIN_ID.toString(16)}] });
+  } catch(e){
+    if(e.code===4902){
+      await window.ethereum.request({ method:'wallet_addEthereumChain', params:[{
+        chainId:'0x'+CHAIN_ID.toString(16), chainName:'Robinhood Chain Testnet',
+        nativeCurrency:{name:'Ethereum',symbol:'ETH',decimals:18},
+        rpcUrls:[RPC], blockExplorerUrls:[EXPLORER]
+      }]});
+    }
+  }
+}
+
+async function refreshAll(){
+  await loadBalances();
+  updateSwapUI();
+  await checkPool();
+  loadDashboardStats();
+}
+
+// ═══════════════════════════════════════════════════════
+//  BALANCES
+// ═══════════════════════════════════════════════════════
+async function loadBalances(){
+  if(!wallet) return;
+  const ethHex = await window.ethereum.request({ method:'eth_getBalance', params:[wallet,'latest'] });
+  balances['ETH'] = (parseInt(ethHex,16)/1e18).toFixed(4);
+
+  const padded = wallet.replace('0x','').padStart(64,'0');
+  await Promise.all(TOKENS.filter(t=>t.address!=='native').map(async t => {
+    try {
+      const res = await window.ethereum.request({ method:'eth_call', params:[{to:t.address, data:'0x70a08231'+padded},'latest'] });
+      balances[t.symbol] = (Number(BigInt(res||'0x0'))/Math.pow(10,t.decimals)).toFixed(4);
+    } catch(e){ balances[t.symbol]='0.0000'; }
+  }));
+
+  updateBalDisplays();
+  document.getElementById('wrapEthBal').textContent = balances['ETH']+' ETH';
+  document.getElementById('unwrapWethBal').textContent = balances['WETH']+' WETH';
+  document.getElementById('statEth').textContent = balances['ETH'];
+  document.getElementById('statWeth').textContent = balances['WETH'];
+}
+
+function updateBalDisplays(){
+  const symF = tokFrom.address==='native' ? 'ETH' : tokFrom.symbol;
+  const symT = tokTo.address==='native' ? 'ETH' : tokTo.symbol;
+  document.getElementById('balFrom').textContent = 'Balance: '+(balances[symF]||'0');
+  document.getElementById('balTo').textContent   = 'Balance: '+(balances[symT]||'0');
+}
+
+// ═══════════════════════════════════════════════════════
+//  POOL PRICE READING (Synthra V3 sqrtPriceX96)
+// ═══════════════════════════════════════════════════════
+function getPairKey(a, b){
+  // Normalise ETH -> WETH for pool lookups
+  const sa = a.symbol==='ETH' ? 'WETH' : a.symbol;
+  const sb = b.symbol==='ETH' ? 'WETH' : b.symbol;
+  return [sa+'/'+sb, sb+'/'+sa];
+}
+
+function getPoolAddr(a, b, fee){
+  const [key1, key2] = getPairKey(a, b);
+  if(fee===500){
+    return POOLS_500[key1] || POOLS_500[key2] || null;
+  }
+  const p1 = POOLS[key1], p2 = POOLS[key2];
+  if(p1) return p1.addr;
+  if(p2) return p2.addr;
+  return null;
+}
+
+async function checkPool(){
+  const poolAddr = getPoolAddr(tokFrom, tokTo, selectedFee);
+  currentPoolAddr = poolAddr;
+
+  if(!poolAddr){
+    document.getElementById('poolAddr').textContent = 'No pool found';
+    document.getElementById('rateDisplay').textContent = '—';
+    document.getElementById('impactDisplay').textContent = '—';
+    document.getElementById('minOut').textContent = '—';
+    document.getElementById('amtOut').value = '';
+    return;
+  }
+
+  const shortAddr = poolAddr.substring(0,8)+'...'+poolAddr.slice(-4);
+  document.getElementById('poolAddr').innerHTML = '<a href="'+EXPLORER+'/address/'+poolAddr+'" target="_blank" style="color:var(--green)">'+shortAddr+'</a>';
+
+  await calcFromPool(poolAddr);
+  await checkApproval();
+}
+
+async function calcFromPool(poolAddr){
+  if(!poolAddr) return;
+  try {
+    // slot0() = 0x3850c7bd -> returns sqrtPriceX96, tick, ...
+    const slot0 = await window.ethereum.request({ method:'eth_call', params:[{to:poolAddr, data:'0x3850c7bd'},'latest'] });
+    if(!slot0 || slot0==='0x') return;
+
+    const sqrtPriceX96 = BigInt('0x'+slot0.slice(2,66));
+    if(sqrtPriceX96 === 0n) return;
+
+    // Price = (sqrtPriceX96 / 2^96)^2
+    const Q96 = BigInt(2)**BigInt(96);
+    const price_raw = Number(sqrtPriceX96 * sqrtPriceX96) / Number(Q96 * Q96);
+
+    // We need to know which token is token0 vs token1 in the pool
+    // token0 is always the lower address lexicographically
+    const addrA = tokFrom.symbol==='ETH' ? '0x33e4191705c386532ba27cBF171Db86919200B94' : tokFrom.address;
+    const addrB = tokTo.symbol==='ETH'   ? '0x33e4191705c386532ba27cBF171Db86919200B94' : tokTo.address;
+
+    const isFromToken0 = addrA.toLowerCase() < addrB.toLowerCase();
+    // price_raw = token1/token0 if from is token0, else token0/token1
+    const price = isFromToken0 ? price_raw : 1/price_raw;
+
+    const amtIn = parseFloat(document.getElementById('amtIn').value)||0;
+    const amtOut = amtIn * price * (1 - selectedFee/1000000);
+
+    if(amtIn > 0){
+      document.getElementById('amtOut').value = amtOut.toFixed(6);
+      document.getElementById('rateDisplay').textContent = '1 '+tokFrom.symbol+' = '+price.toFixed(6)+' '+tokTo.symbol;
+      const minReceived = amtOut * (1 - slippage/100);
+      document.getElementById('minOut').textContent = minReceived.toFixed(6)+' '+tokTo.symbol;
+      // Price impact estimate
+      const impact = Math.min(amtIn * 0.3, 5).toFixed(2);
+      document.getElementById('impactDisplay').textContent = '~'+impact+'%';
+      updateUSD();
+    } else {
+      document.getElementById('rateDisplay').textContent = '1 '+tokFrom.symbol+' = '+price.toFixed(6)+' '+tokTo.symbol;
+    }
+
+    currentPool = { price, sqrtPriceX96: sqrtPriceX96.toString() };
+  } catch(e){ console.warn('pool read err:', e); }
+}
+
+// ═══════════════════════════════════════════════════════
+//  APPROVAL CHECK
+// ═══════════════════════════════════════════════════════
+async function checkApproval(){
+  if(!wallet || !connected) return;
+  
+  // ETH doesn't need approval
+  if(tokFrom.address === 'native'){
+    needsApproval = false;
+    document.getElementById('approveNotice').classList.remove('show');
+    document.getElementById('approveBtn').style.display = 'none';
+    return;
+  }
+
+  const amtIn = parseFloat(document.getElementById('amtIn').value)||0;
+  if(amtIn <= 0) return;
+
+  try {
+    const router = routerAddr;
+    const padWallet = wallet.replace('0x','').padStart(64,'0');
+    const padRouter = router.replace('0x','').padStart(64,'0');
+    // allowance(owner, spender) = 0xdd62ed3e
+    const res = await window.ethereum.request({ method:'eth_call', params:[{
+      to:tokFrom.address, data:'0xdd62ed3e'+padWallet+padRouter
+    },'latest']});
+    const allowance = BigInt(res||'0x0');
+    const needed = BigInt(Math.floor(amtIn * Math.pow(10, tokFrom.decimals)));
+    needsApproval = allowance < needed;
+
+    if(needsApproval){
+      document.getElementById('approveNotice').classList.add('show');
+      document.getElementById('approveToken').textContent = tokFrom.symbol;
+      document.getElementById('approveBtn').style.display = 'block';
+      document.getElementById('approveBtnTok').textContent = tokFrom.symbol;
+    } else {
+      document.getElementById('approveNotice').classList.remove('show');
+      document.getElementById('approveBtn').style.display = 'none';
+    }
+  } catch(e){ console.warn('allowance check err:', e); }
+}
+
+// ═══════════════════════════════════════════════════════
+//  APPROVE
+// ═══════════════════════════════════════════════════════
+async function doApprove(){
+  if(!connected){ await connectWallet(); return; }
+  try {
+    showToast('Approving '+tokFrom.symbol+'...','info');
+    // approve(spender, amount) = 0x095ea7b3 — approve max uint256
+    const MAX = 'f'.repeat(64);
+    const padRouter = routerAddr.replace('0x','').padStart(64,'0');
+    const txHash = await window.ethereum.request({ method:'eth_sendTransaction', params:[{
+      from:wallet, to:tokFrom.address,
+      data:'0x095ea7b3'+padRouter+MAX,
+      gas:'0x'+( 80000).toString(16),
+    }]});
+    showToast('Approval TX sent...','info');
+    const receipt = await waitReceipt(txHash);
+    if(receipt?.status==='0x1'){
+      showToast('Approved! Now swap.','success');
+      needsApproval = false;
+      document.getElementById('approveNotice').classList.remove('show');
+      document.getElementById('approveBtn').style.display = 'none';
+    }
+  } catch(e){
+    if(e.code===4001) showToast('Cancelled','error');
+    else showToast('Approve error: '+e.message.substring(0,50),'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  SWAP — Synthra V3 exactInputSingle
+// ═══════════════════════════════════════════════════════
+async function handleSwap(){
+  if(!connected){ await connectWallet(); return; }
+  if(needsApproval){ showToast('Approve token first!','error'); return; }
+
+  const amtIn = parseFloat(document.getElementById('amtIn').value);
+  const amtOut = parseFloat(document.getElementById('amtOut').value);
+  if(!amtIn||amtIn<=0){ showToast('Enter an amount','error'); return; }
+  if(!currentPoolAddr){ showToast('No pool for this pair','error'); return; }
+  if(tokFrom.symbol===tokTo.symbol){ showToast('Select different tokens','error'); return; }
+
+  const btn = document.getElementById('mainSwapBtn');
+  btn.disabled = true; btn.textContent = 'Confirm in MetaMask...';
+
+  try {
+    const addrIn  = tokFrom.symbol==='ETH' ? '0x33e4191705c386532ba27cBF171Db86919200B94' : tokFrom.address;
+    const addrOut = tokTo.symbol==='ETH'   ? '0x33e4191705c386532ba27cBF171Db86919200B94' : tokTo.address;
+    const amtInWei  = BigInt(Math.floor(amtIn  * Math.pow(10, tokFrom.decimals===18?18:tokFrom.decimals)));
+    const amtOutMin = BigInt(Math.floor(amtOut * (1-slippage/100) * Math.pow(10, tokTo.decimals===18?18:tokTo.decimals)));
+    const deadline  = BigInt(Math.floor(Date.now()/1000) + 1200);
+    const sqrtPriceLimitX96 = 0n;
+
+    // Synthra: multicall(uint256 deadline, bytes[]) -> 0x5ae401dc
+    // Inner:   exactInputSingle (no deadline in struct) -> 0x04e45aaf
+    const enc64 = v => v.toString(16).padStart(64,'0');
+
+    const isETHIn  = tokFrom.symbol==='ETH';
+    const isETHOut = tokTo.symbol==='ETH';
+
+    // When swapping TO ETH: recipient of swap must be router, then call unwrapWETH9
+    const swapRecipient = isETHOut ? routerAddr : wallet;
+
+    const innerCall = '04e45aaf'
+      + addrIn.replace('0x','').padStart(64,'0')
+      + addrOut.replace('0x','').padStart(64,'0')
+      + enc64(BigInt(selectedFee))
+      + swapRecipient.replace('0x','').padStart(64,'0')
+      + enc64(amtInWei)
+      + enc64(amtOutMin)
+      + enc64(0n);
+
+    // Build calls array — if ETH out, add unwrapWETH9(amountMinimum, recipient)
+    // unwrapWETH9(uint256,address) = 0x49404b7c
+    const calls = [innerCall];
+    if(isETHOut){
+      const unwrap = '49404b7c'
+        + enc64(amtOutMin)
+        + wallet.replace('0x','').padStart(64,'0');
+      calls.push(unwrap);
+    }
+
+    // ABI-encode bytes[] with N calls
+    // offset to array data + array length + per-element offsets + data
+    const N = calls.length;
+    // offsets block: N words, each pointing to its element
+    // first element starts after N offset words = N*32 bytes from start of array data
+    let offsetAcc = N * 32;
+    let offsetsHex = '';
+    let dataHex = '';
+    for(const call of calls){
+      const len = call.length / 2;
+      const padded = call.padEnd(Math.ceil(len/32)*32*2,'0');
+      offsetsHex += enc64(BigInt(offsetAcc));
+      dataHex += enc64(BigInt(len)) + padded;
+      offsetAcc += 32 + Math.ceil(len/32)*32;
+    }
+
+    // multicall(deadline, bytes[]) layout:
+    // selector(4) + deadline(32) + offset_to_arr(32) + arr_len(32) + offsets + data
+    const arrData = enc64(0x40n) + enc64(BigInt(N)) + offsetsHex + dataHex;
+    const calldata = '0x5ae401dc' + enc64(deadline) + arrData;
+
+    const txParams = {
+      from: wallet,
+      to: routerAddr,
+      data: calldata,
+      gas: '0x'+(400000).toString(16),
+    };
+    if(isETHIn) txParams.value = '0x'+amtInWei.toString(16);
+
+    showToast('Sending swap to Synthra V3...','info');
+    const txHash = await window.ethereum.request({ method:'eth_sendTransaction', params:[txParams] });
+    btn.textContent = 'Waiting for block...';
+    showToast('TX sent: '+short(txHash),'info');
+
+    const receipt = await waitReceipt(txHash);
+    if(receipt?.status==='0x1'){
+      showToast('Swap confirmed! '+amtIn+' '+tokFrom.symbol+' -> '+tokTo.symbol,'success');
+      localHistory.unshift({ from:tokFrom.symbol, to:tokTo.symbol, amtIn, amtOut, txHash, block:parseInt(receipt.blockNumber,16), wallet:short(wallet), fee:selectedFee });
+      document.getElementById('amtIn').value='';
+      document.getElementById('amtOut').value='';
+      await refreshAll();
+    } else {
+      showToast('TX reverted — try adjusting slippage or fee tier','error');
+    }
+  } catch(e){
+    if(e.code===4001) showToast('Cancelled','error');
+    else showToast('Error: '+e.message.substring(0,70),'error');
+  }
+  btn.disabled=false; updateSwapUI();
+}
+
+// ═══════════════════════════════════════════════════════
+//  WRAP / UNWRAP (WETH official contract)
+// ═══════════════════════════════════════════════════════
+const WETH_ADDR = '0x33e4191705c386532ba27cBF171Db86919200B94';
+
+async function doWrap(){
+  if(!connected){ await connectWallet(); return; }
+  const amt = parseFloat(document.getElementById('wrapAmt').value);
+  if(!amt||amt<=0){ showToast('Enter amount','error'); return; }
+  try {
+    showToast('Wrapping ETH...','info');
+    // deposit() = 0xd0e30db0
+    const txHash = await window.ethereum.request({ method:'eth_sendTransaction', params:[{
+      from:wallet, to:WETH_ADDR, data:'0xd0e30db0',
+      value:'0x'+BigInt(Math.floor(amt*1e18)).toString(16),
+      gas:'0x'+( 80000).toString(16),
+    }]});
+    const receipt = await waitReceipt(txHash);
+    if(receipt?.status==='0x1'){ showToast('Wrapped '+amt+' ETH to WETH','success'); document.getElementById('wrapAmt').value=''; await refreshAll(); }
+  } catch(e){ if(e.code===4001) showToast('Cancelled','error'); else showToast('Error: '+e.message.substring(0,50),'error'); }
+}
+
+async function doUnwrap(){
+  if(!connected){ await connectWallet(); return; }
+  const amt = parseFloat(document.getElementById('unwrapAmt').value);
+  if(!amt||amt<=0){ showToast('Enter amount','error'); return; }
+  try {
+    showToast('Unwrapping WETH...','info');
+    // withdraw(uint256) = 0x2e1a7d4d
+    const amtHex = BigInt(Math.floor(amt*1e18)).toString(16).padStart(64,'0');
+    const txHash = await window.ethereum.request({ method:'eth_sendTransaction', params:[{
+      from:wallet, to:WETH_ADDR, data:'0x2e1a7d4d'+amtHex,
+      gas:'0x'+( 80000).toString(16),
+    }]});
+    const receipt = await waitReceipt(txHash);
+    if(receipt?.status==='0x1'){ showToast('Unwrapped '+amt+' WETH to ETH','success'); document.getElementById('unwrapAmt').value=''; await refreshAll(); }
+  } catch(e){ if(e.code===4001) showToast('Cancelled','error'); else showToast('Error: '+e.message.substring(0,50),'error'); }
+}
+
+// ═══════════════════════════════════════════════════════
+//  POOLS TAB
+// ═══════════════════════════════════════════════════════
+async function loadPools(){
+  const grid = document.getElementById('poolGrid');
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);font-family:var(--mono);font-size:0.75rem;padding:20px">Loading pool prices...</div>';
+
+  const entries = Object.entries(POOLS);
+  let html = '';
+
+  for(const [key, pool] of entries){
+    const [symA, symB] = key.split('/');
+    let priceStr = '—';
+    try {
+      const slot0 = await (window.ethereum?.request({ method:'eth_call', params:[{to:pool.addr, data:'0x3850c7bd'},'latest']})||Promise.resolve(null));
+      if(slot0){
+        const sqrtPriceX96 = BigInt('0x'+slot0.slice(2,66));
+        if(sqrtPriceX96 > 0n){
+          const Q96 = BigInt(2)**BigInt(96);
+          const price = Number(sqrtPriceX96*sqrtPriceX96)/Number(Q96*Q96);
+          priceStr = price < 0.001 ? price.toExponential(3) : price.toFixed(4);
+        }
+      }
+    } catch(e){}
+
+    const shortA = pool.addr.substring(0,6)+'...'+pool.addr.slice(-4);
+    html += `<div class="pool-card" onclick="selectPool('${symA}','${symB}')">
+      <div class="pool-pair">${symA} / ${symB}</div>
+      <div class="pool-fee">${(pool.fee/10000).toFixed(2)}% fee</div>
+      <div class="pool-price">1 ${symA} = ${priceStr} ${symB}</div>
+      <div class="pool-addr">${shortA}</div>
+    </div>`;
+  }
+
+  grid.innerHTML = html;
+}
+
+function selectPool(symA, symB){
+  const tA = TOKENS.find(t=>t.symbol===symA);
+  const tB = TOKENS.find(t=>t.symbol===symB);
+  if(tA && tB){
+    tokFrom=tA; tokTo=tB;
+    switchTab('swap', document.querySelectorAll('.tab')[0]);
+    updateSwapUI();
+    checkPool();
+    showToast('Pool selected: '+symA+'/'+symB,'success');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  HISTORY
+// ═══════════════════════════════════════════════════════
+async function loadHistory(){
+  const tbody = document.getElementById('historyBody');
+  tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">Loading...</div></td></tr>';
+
+  try {
+    // Synthra V3 Swap event: keccak256("Swap(address,address,int256,int256,uint160,uint128,int24)")
+    // We check all known pools
+    const poolAddrs = Object.values(POOLS).map(p=>p.addr);
+    let rows = [...localHistory];
+
+    // eth_getLogs for swap events from our wallet on known pools
+    const swapTopic = '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67';
+    for(const poolAddr of poolAddrs.slice(0,5)){ // limit to avoid rate limit
+      try {
+        const logs = await window.ethereum.request({ method:'eth_getLogs', params:[{
+          address:poolAddr, topics:[swapTopic], fromBlock:'0x0', toBlock:'latest'
+        }]});
+        for(const log of (logs||[]).slice(-5)){
+          // Find pair name
+          const pairName = Object.entries(POOLS).find(([k,v])=>v.addr.toLowerCase()===poolAddr.toLowerCase())?.[0]||'?/?';
+          rows.push({ from:pairName.split('/')[0], to:pairName.split('/')[1], amtIn:'on-chain', amtOut:'on-chain', txHash:log.transactionHash, block:parseInt(log.blockNumber,16), wallet:short('0x'+log.topics[2]?.slice(26)||''), fee:'—' });
+        }
+      } catch(e){}
+    }
+
+    if(rows.length===0){
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">No swaps yet — go make one!</div></td></tr>';
+      return;
+    }
+
+    rows.sort((a,b)=>(b.block||0)-(a.block||0));
+    tbody.innerHTML = rows.slice(0,30).map(r=>`<tr>
+      <td><span class="swap-badge">${r.from} &#8594; ${r.to}</span></td>
+      <td>${typeof r.amtIn==='number'?r.amtIn.toFixed(6):r.amtIn}</td>
+      <td>${typeof r.amtOut==='number'?r.amtOut.toFixed(6):r.amtOut}</td>
+      <td>${r.fee||'—'}</td>
+      <td style="font-size:0.62rem">${r.wallet||'—'}</td>
+      <td><a class="tx-link" href="${EXPLORER}/tx/${r.txHash}" target="_blank">${short(r.txHash,4)} &#8599;</a></td>
+    </tr>`).join('');
+  } catch(e){
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">Error: '+e.message.substring(0,60)+'</div></td></tr>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════════════
+function loadDashboardStats(){
+  document.getElementById('dEth').textContent  = balances['ETH']||'—';
+  document.getElementById('dWeth').textContent = balances['WETH']||'—';
+  document.getElementById('dUsdc').textContent = balances['USDC']||'—';
+}
+function loadDashboard(){
+  loadDashboardStats();
+  const list = document.getElementById('allBalances');
+  list.innerHTML = TOKENS.map(t=>`
+    <div class="bal-row">
+      <div class="tok-icon" style="background:${t.bg||'#111'};color:${t.color};width:32px;height:32px;font-size:0.5rem;flex-shrink:0">${t.symbol.substring(0,3)}</div>
+      <div style="flex:1"><div class="bal-name">${t.symbol}</div><div class="bal-sub">${t.name}</div></div>
+      <div class="bal-amount">${balances[t.symbol]||'0.0000'}</div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════════════════
+function updateSwapUI(){
+  const btn = document.getElementById('mainSwapBtn');
+  if(!connected){ btn.textContent='Connect Wallet'; btn.className='main-btn outline'; btn.disabled=false; return; }
+  btn.textContent = 'Swap '+tokFrom.symbol+' -> '+tokTo.symbol;
+  btn.className='main-btn'; btn.disabled=false;
+  updateBalDisplays();
+  updateTokIcons();
+  document.getElementById('feeDisplay').textContent = (selectedFee/10000).toFixed(2)+'%';
+}
+
+function updateTokIcons(){
+  const iF=document.getElementById('iconFrom'),sF=document.getElementById('symFrom');
+  iF.textContent=tokFrom.symbol.substring(0,3); iF.style.background=tokFrom.bg; iF.style.color=tokFrom.color; sF.textContent=tokFrom.symbol;
+  const iT=document.getElementById('iconTo'),sT=document.getElementById('symTo');
+  iT.textContent=tokTo.symbol.substring(0,3); iT.style.background=tokTo.bg; iT.style.color=tokTo.color; sT.textContent=tokTo.symbol;
+}
+
+function updateUSD(){
+  const PRICES = {ETH:2800,WETH:2800,USDC:1,TSLA:235,AMZN:185,NFLX:620,PLTR:22,AMD:165};
+  const amtIn  = parseFloat(document.getElementById('amtIn').value)||0;
+  const amtOut = parseFloat(document.getElementById('amtOut').value)||0;
+  document.getElementById('usdFrom').textContent = '&#8776; $'+(amtIn*(PRICES[tokFrom.symbol]||0)).toFixed(2);
+  document.getElementById('usdTo').textContent   = '&#8776; $'+(amtOut*(PRICES[tokTo.symbol]||0)).toFixed(2);
+}
+
+async function onAmtChange(){ calcOut(); await checkApproval(); }
+function calcOut(){ if(currentPool?.price){ const amt=parseFloat(document.getElementById('amtIn').value)||0; if(amt>0){ const out=amt*currentPool.price*(1-selectedFee/1000000); document.getElementById('amtOut').value=out.toFixed(6); const min=out*(1-slippage/100); document.getElementById('minOut').textContent=min.toFixed(6)+' '+tokTo.symbol; } updateUSD(); } }
+function flipTokens(){ [tokFrom,tokTo]=[tokTo,tokFrom]; updateSwapUI(); checkPool(); }
+function setMax(){ const b=balances[tokFrom.symbol]; if(b){ document.getElementById('amtIn').value=b; onAmtChange(); } }
+function setWrapMax(){ document.getElementById('wrapAmt').value=balances['ETH']||''; }
+function setUnwrapMax(){ document.getElementById('unwrapAmt').value=balances['WETH']||''; }
+function setFee(fee, el){ selectedFee=fee; document.querySelectorAll('.fee-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active'); document.getElementById('feeDisplay').textContent=(fee/10000).toFixed(2)+'%'; checkPool(); }
+function toggleSlip(){ const b=document.getElementById('slipBox'); b.style.display=b.style.display==='none'?'block':'none'; }
+function setSlip(v,el){ slippage=v; document.querySelectorAll('#slipBox .fee-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active'); document.getElementById('slipDisplay').textContent=v+'% &#9998;'; calcOut(); }
+function short(addr,c=4){ if(!addr)return'—'; return addr.substring(0,c+2)+'...'+addr.substring(addr.length-c); }
+
+// MODAL
+function openModal(t){ modalTarget=t; renderToks(TOKENS); document.getElementById('tokenModal').classList.add('open'); document.getElementById('tokSearch').value=''; setTimeout(()=>document.getElementById('tokSearch').focus(),100); }
+function closeModal(){ document.getElementById('tokenModal').classList.remove('open'); }
+function filterToks(){ const q=document.getElementById('tokSearch').value.toLowerCase(); renderToks(TOKENS.filter(t=>t.symbol.toLowerCase().includes(q)||t.name.toLowerCase().includes(q))); }
+function renderToks(list){ document.getElementById('tokList').innerHTML=list.map(t=>`<div class="tok-item" onclick="selectTok('${t.symbol}')"><div class="tok-icon" style="width:34px;height:34px;font-size:0.5rem;background:${t.bg};color:${t.color};flex-shrink:0">${t.symbol.substring(0,3)}</div><div class="tok-item-info"><div class="tok-item-sym">${t.symbol}</div><div class="tok-item-name">${t.name}</div></div><div class="tok-item-bal">${balances[t.symbol]||'—'}</div></div>`).join(''); }
+function selectTok(sym){ const t=TOKENS.find(x=>x.symbol===sym); if(modalTarget==='from')tokFrom=t; else tokTo=t; closeModal(); updateSwapUI(); checkPool(); }
+document.getElementById('tokenModal').addEventListener('click',function(e){ if(e.target===this)closeModal(); });
+
+// TOAST
+let toastT;
+function showToast(msg,type='info'){ const t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+type; requestAnimationFrame(()=>requestAnimationFrame(()=>t.classList.add('show'))); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),5000); }
+
+// TX POLLING
+async function waitReceipt(hash,max=40){ for(let i=0;i<max;i++){ await new Promise(r=>setTimeout(r,2500)); try{ const r=await window.ethereum.request({method:'eth_getTransactionReceipt',params:[hash]}); if(r)return r; }catch(e){} } return null; }
+
+// METAMASK EVENTS
+if(window.ethereum){
+  window.ethereum.on('accountsChanged',accs=>{ if(!accs.length){disconnectWallet();}else{wallet=accs[0];document.getElementById('walletBtn').textContent=short(wallet);refreshAll();} });
+  window.ethereum.on('chainChanged',()=>location.reload());
+}
+
+// INIT
+updateSwapUI();
+</script>
+</body>
+</html>
