@@ -41,8 +41,42 @@
     .net-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: blink 2s ease-in-out infinite; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
 
-    /* AppKit button will render via <appkit-button> web component */
-    appkit-button { --wui-color-accent-100: #00c805; }
+    /* AppKit button styling */
+    appkit-button {
+      --wui-color-accent-100: #00c805;
+      --wui-color-accent-090: #00c805;
+      --wui-color-accent-080: #00a804;
+      --wui-border-radius-s: 6px;
+      --wui-border-radius-m: 6px;
+    }
+    /* Force the inner wui-connect-button to be visible */
+    appkit-button::part(wui-connect-button),
+    appkit-button > * {
+      background: transparent !important;
+      border: 1px solid var(--border2) !important;
+      color: var(--text2) !important;
+      font-family: var(--mono) !important;
+      font-size: 0.72rem !important;
+      padding: 6px 14px !important;
+      border-radius: 6px !important;
+      cursor: pointer !important;
+    }
+    /* Fallback: if appkit-button renders but is empty/invisible, show a placeholder */
+    .appkit-wrap {
+      display: flex;
+      align-items: center;
+    }
+    .appkit-wrap:empty::after {
+      content: 'Connect Wallet';
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      background: none;
+      border: 1px solid var(--border2);
+      color: var(--text2);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
 
     /* TABS */
     .tabs { position: relative; z-index: 1; display: flex; padding: 20px 24px 0; max-width: 1100px; margin: 0 auto; }
@@ -228,7 +262,11 @@
   <div class="topbar-right">
     <div class="net-pill"><div class="dot"></div>SYNTHRA V3 · ROBINHOOD TESTNET</div>
     <!-- AppKit web component — renders the connect button automatically -->
-    <appkit-button></appkit-button>
+    <!-- AppKit loaded: hide fallback button -->
+    <div id="appkitWrap" style="display:flex;align-items:center">
+      <appkit-button></appkit-button>
+    </div>
+    <button class="wallet-btn" id="walletFallbackBtn" onclick="connectWallet()">Connect Wallet</button>
   </div>
 </div>
 
