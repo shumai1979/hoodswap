@@ -40,43 +40,12 @@
     }
     .net-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: blink 2s ease-in-out infinite; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
-
-    /* AppKit button styling */
-    appkit-button {
-      --wui-color-accent-100: #00c805;
-      --wui-color-accent-090: #00c805;
-      --wui-color-accent-080: #00a804;
-      --wui-border-radius-s: 6px;
-      --wui-border-radius-m: 6px;
+    .wallet-btn {
+      font-family: var(--mono); font-size: 0.72rem;
+      background: none; border: 1px solid var(--border2); color: var(--text2);
+      padding: 6px 14px; border-radius: 6px; cursor: pointer; transition: all 0.2s;
     }
-    /* Force the inner wui-connect-button to be visible */
-    appkit-button::part(wui-connect-button),
-    appkit-button > * {
-      background: transparent !important;
-      border: 1px solid var(--border2) !important;
-      color: var(--text2) !important;
-      font-family: var(--mono) !important;
-      font-size: 0.72rem !important;
-      padding: 6px 14px !important;
-      border-radius: 6px !important;
-      cursor: pointer !important;
-    }
-    /* Fallback: if appkit-button renders but is empty/invisible, show a placeholder */
-    .appkit-wrap {
-      display: flex;
-      align-items: center;
-    }
-    .appkit-wrap:empty::after {
-      content: 'Connect Wallet';
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      background: none;
-      border: 1px solid var(--border2);
-      color: var(--text2);
-      padding: 6px 14px;
-      border-radius: 6px;
-      cursor: pointer;
-    }
+    .wallet-btn:hover, .wallet-btn.connected { border-color: var(--green); color: var(--green); background: var(--green-dim); }
 
     /* TABS */
     .tabs { position: relative; z-index: 1; display: flex; padding: 20px 24px 0; max-width: 1100px; margin: 0 auto; }
@@ -261,12 +230,15 @@
   <div class="logo">Hood<span class="sw">Swap</span></div>
   <div class="topbar-right">
     <div class="net-pill"><div class="dot"></div>SYNTHRA V3 · ROBINHOOD TESTNET</div>
-    <!-- AppKit web component — renders the connect button automatically -->
-    <!-- AppKit loaded: hide fallback button -->
-    <div id="appkitWrap" style="display:flex;align-items:center">
-      <appkit-button></appkit-button>
+    <div style="position:relative" id="walletWrap">
+      <button class="wallet-btn" id="walletBtn" onclick="toggleWalletMenu()">Connect Wallet</button>
+      <div id="walletMenu" style="display:none;position:absolute;right:0;top:calc(100% + 8px);background:var(--card);border:1px solid var(--border2);border-radius:10px;min-width:200px;z-index:100;overflow:hidden">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:0.65rem;color:var(--muted)">Connected</div>
+        <div id="walletMenuAddr" style="padding:10px 16px;font-family:var(--mono);font-size:0.7rem;color:var(--green);border-bottom:1px solid var(--border);cursor:pointer" onclick="copyAddress()">— click to copy</div>
+        <div style="padding:10px 16px;font-family:var(--mono);font-size:0.72rem;color:var(--text2);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''" onclick="openExplorer()">View on Explorer &#8599;</div>
+        <div style="padding:10px 16px;font-family:var(--mono);font-size:0.72rem;color:var(--red);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''" onclick="disconnectWallet()">Disconnect</div>
+      </div>
     </div>
-    <button class="wallet-btn" id="walletFallbackBtn" onclick="connectWallet()">Connect Wallet</button>
   </div>
 </div>
 
@@ -469,90 +441,6 @@
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════
-     Reown AppKit — loaded as ESM from CDN
-     IMPORTANT: Replace YOUR_PROJECT_ID with your real ID from
-     https://dashboard.reown.com
-════════════════════════════════════════════════════════ -->
-<script type="module">
-import {
-  createAppKit,
-  useAppKitProvider,
-  useAppKitAccount,
-} from 'https://cdn.jsdelivr.net/npm/@reown/appkit-cdn@1.8.18/dist/appkit.js';
-
-// ── 1. Define Robinhood Testnet as a custom chain ──────────────────────────
-// AppKit uses viem under the hood; defineChain is re-exported from appkit
-import { defineChain } from 'https://cdn.jsdelivr.net/npm/@reown/appkit-cdn@1.8.18/dist/appkit.js';
-
-const robinhoodTestnet = defineChain({
-  id: 46630,
-  caipNetworkId: 'eip155:46630',
-  chainNamespace: 'eip155',
-  name: 'Robinhood Chain Testnet',
-  nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
-  rpcUrls: {
-    default: { http: ['https://rpc.testnet.chain.robinhood.com'] }
-  },
-  blockExplorers: {
-    default: { name: 'Explorer', url: 'https://explorer.testnet.chain.robinhood.com' }
-  },
-});
-
-// ── 2. Create AppKit instance ──────────────────────────────────────────────
-// Get your free Project ID at https://dashboard.reown.com
-const PROJECT_ID = '79288c6f4995d6fce4ff49fe9be10591';
-
-const modal = createAppKit({
-  projectId: PROJECT_ID,
-  networks: [robinhoodTestnet],
-  defaultNetwork: robinhoodTestnet,
-  metadata: {
-    name: 'HoodSwap',
-    description: 'DEX swap app on Robinhood Chain Testnet — powered by Synthra V3',
-    url: 'https://shumai1979.github.io/hoodswap',
-    icons: ['https://shumai1979.github.io/hoodswap/favicon.ico'],
-  },
-  features: {
-    analytics: true,
-    email: false,         // disable email login (keep it wallet-only, cleaner for DeFi)
-    socials: false,
-  },
-  themeMode: 'dark',
-  themeVariables: {
-    '--w3m-color-mix': '#00c805',
-    '--w3m-color-mix-strength': 20,
-    '--w3m-accent': '#00c805',
-    '--w3m-border-radius-master': '6px',
-    '--w3m-font-family': "'IBM Plex Mono', monospace",
-  },
-});
-
-// ── 3. Listen for account/provider changes, bridge into app state ──────────
-// AppKit emits events we can subscribe to
-modal.subscribeAccount(({ address, isConnected }) => {
-  if (isConnected && address) {
-    window._appkitConnected = true;
-    window._appkitAddress   = address;
-    // Expose provider as window.ethereum so existing swap logic works unchanged
-    const walletProvider = useAppKitProvider('eip155');
-    if (walletProvider?.walletProvider) {
-      window.ethereum = walletProvider.walletProvider;
-    }
-    // Trigger app-level connect handler
-    window._onAppKitConnect(address);
-  } else {
-    window._appkitConnected = false;
-    window._appkitAddress   = null;
-    window._onAppKitDisconnect();
-  }
-});
-
-// Expose modal open function globally so the swap button can trigger it
-window._openAppKitModal = () => modal.open();
-window._appKit = modal;
-</script>
-
 <script>
 // ═══════════════════════════════════════════════════════
 //  CONFIG — Synthra V3 on Robinhood Chain Testnet
@@ -561,9 +449,11 @@ const CHAIN_ID  = 46630;
 const RPC       = 'https://rpc.testnet.chain.robinhood.com';
 const EXPLORER  = 'https://explorer.testnet.chain.robinhood.com';
 
+// Synthra V3 contracts
 const SYNTHRA_FACTORY = '0x911b4000d3422f482f4062a913885f7b035382df';
-const SYNTHRA_ROUTER  = '0x3Ce954107b1A675826B33bF23060Dd655e3758fE';
+const SYNTHRA_ROUTER  = '0x3Ce954107b1A675826B33bF23060Dd655e3758fE'; // confirmed from on-chain txs
 
+// Real token contracts
 const TOKENS = [
   { symbol:'ETH',  name:'Ethereum (Gas)',        address:'native',                                      color:'#627eea', bg:'#0d1220', decimals:18 },
   { symbol:'WETH', name:'Wrapped ETH',            address:'0x33e4191705c386532ba27cBF171Db86919200B94', color:'#00c805', bg:'#0a1a0a', decimals:18 },
@@ -575,6 +465,7 @@ const TOKENS = [
   { symbol:'AMD',  name:'AMD',                    address:'0x71178BAc73cBeb415514eB542a8995b82669778d', color:'#00aaff', bg:'#001520', decimals:18 },
 ];
 
+// Known pools (fee=3000 as default, best liquidity)
 const POOLS = {
   'WETH/USDC': { addr:'0x9640afcbc2310d011b7b71a76975e919d9b6fa4a', fee:3000 },
   'WETH/TSLA': { addr:'0x593e2e0ef3869616ec3fbe989dcff2699d52b69b', fee:3000 },
@@ -599,6 +490,7 @@ const POOLS = {
   'AMD/PLTR':  { addr:'0xcb69f61707c2a2221c6df39faab1cfbca33659eb', fee:3000 },
 };
 
+// Also pools with lower fees
 const POOLS_500 = {
   'WETH/USDC': '0x9713eb44cca49f95b2d94ea7008e5ccd5aebddf1',
   'WETH/TSLA': '0x14768ae6e6c655e9df62256b18d7df85501c24fc',
@@ -617,58 +509,16 @@ const POOLS_500 = {
   'AMD/PLTR':  '0x8fafc8e278c20dabaeab929d0a6970f519895b61',
 };
 
-// ── State ──────────────────────────────────────────────────────────────────
+// State
 let wallet = null, connected = false;
-let tokFrom = TOKENS[0], tokTo = TOKENS[3];
+let tokFrom = TOKENS[0], tokTo = TOKENS[3]; // ETH -> TSLA
 let modalTarget = 'from', selectedFee = 3000, slippage = 0.5;
 let balances = {}, localHistory = [], currentPool = null, currentPoolAddr = null;
 let needsApproval = false, routerAddr = SYNTHRA_ROUTER;
 
-// ── AppKit bridge callbacks (called from module script above) ──────────────
-window._onAppKitConnect = async (address) => {
-  wallet = address;
-  connected = true;
-  // Ensure we're on the right chain
-  try {
-    const cid = await rpcRequest({ method:'eth_chainId', params:[] });
-    if (parseInt(cid, 16) !== CHAIN_ID) {
-      showToast('Switch to Robinhood Testnet in your wallet','error');
-    }
-  } catch(e){}
-  await refreshAll();
-  showToast('Connected: ' + short(wallet), 'success');
-};
-
-window._onAppKitDisconnect = () => {
-  connected = false; wallet = null;
-  balances = {};
-  updateSwapUI();
-  showToast('Wallet disconnected', 'info');
-};
-
-// ── Provider helper — uses AppKit-injected window.ethereum ─────────────────
-// For read-only calls (balances, pool prices) we use direct JSON-RPC to avoid
-// relying on window.ethereum being available before connection.
-async function rpcFetch(method, params) {
-  const res = await fetch(RPC, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc:'2.0', id:1, method, params })
-  });
-  const json = await res.json();
-  if (json.error) throw new Error(json.error.message);
-  return json.result;
-}
-
-// For writes (transactions, approvals) we need window.ethereum (the connected wallet)
-async function rpcRequest(params) {
-  // If AppKit provider available, prefer it; else fall back to window.ethereum
-  const provider = window.ethereum;
-  if (!provider) throw new Error('No wallet connected');
-  return provider.request(params);
-}
-
-// ── TABS ───────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════════════
 function switchTab(id, el){
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -679,20 +529,79 @@ function switchTab(id, el){
   if(id==='pools') loadPools();
 }
 
-// ── WALLET — now delegated to AppKit ──────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  WALLET
+// ═══════════════════════════════════════════════════════
+async function handleWallet(){
+  if(connected){ toggleWalletMenu(); return; }
+  await connectWallet();
+}
+
+function toggleWalletMenu(){
+  if(!connected){ connectWallet(); return; }
+  const menu = document.getElementById('walletMenu');
+  menu.style.display = menu.style.display==='none' ? 'block' : 'none';
+  if(menu.style.display==='block'){
+    document.getElementById('walletMenuAddr').textContent = wallet;
+  }
+}
+
+function copyAddress(){
+  navigator.clipboard.writeText(wallet).then(()=>showToast('Address copied!','success'));
+  document.getElementById('walletMenu').style.display='none';
+}
+
+function openExplorer(){
+  window.open(EXPLORER+'/address/'+wallet,'_blank');
+  document.getElementById('walletMenu').style.display='none';
+}
+
+function disconnectWallet(){
+  connected=false; wallet=null;
+  document.getElementById('walletBtn').textContent='Connect Wallet';
+  document.getElementById('walletBtn').classList.remove('connected');
+  document.getElementById('walletMenu').style.display='none';
+  balances={};
+  updateSwapUI();
+  showToast('Wallet disconnected','info');
+}
+
+// Close menu on outside click
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('walletWrap');
+  if(wrap && !wrap.contains(e.target)){
+    const menu = document.getElementById('walletMenu');
+    if(menu) menu.style.display='none';
+  }
+});
+
 async function connectWallet(){
-  // Open the AppKit modal
-  if (window._openAppKitModal) {
-    window._openAppKitModal();
-  } else {
-    // Fallback: AppKit module not loaded yet, try MetaMask directly
-    if(!window.ethereum){ showToast('Install a wallet first','error'); return; }
-    try {
-      const accs = await window.ethereum.request({ method:'eth_requestAccounts' });
-      wallet = accs[0]; connected = true;
-      await refreshAll();
-      showToast('Connected: '+short(wallet),'success');
-    } catch(e){ showToast('Error: '+e.message.substring(0,50),'error'); }
+  if(!window.ethereum){ showToast('MetaMask not found','error'); return; }
+  try {
+    showToast('Connecting...','info');
+    const accs = await window.ethereum.request({ method:'eth_requestAccounts' });
+    wallet = accs[0];
+    const cid = await window.ethereum.request({ method:'eth_chainId' });
+    if(parseInt(cid,16) !== CHAIN_ID) await switchNet();
+    connected = true;
+    document.getElementById('walletBtn').textContent = short(wallet);
+    document.getElementById('walletBtn').classList.add('connected');
+    await refreshAll();
+    showToast('Connected: '+short(wallet),'success');
+  } catch(e){ showToast('Error: '+e.message.substring(0,50),'error'); }
+}
+
+async function switchNet(){
+  try {
+    await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{chainId:'0x'+CHAIN_ID.toString(16)}] });
+  } catch(e){
+    if(e.code===4902){
+      await window.ethereum.request({ method:'wallet_addEthereumChain', params:[{
+        chainId:'0x'+CHAIN_ID.toString(16), chainName:'Robinhood Chain Testnet',
+        nativeCurrency:{name:'Ethereum',symbol:'ETH',decimals:18},
+        rpcUrls:[RPC], blockExplorerUrls:[EXPLORER]
+      }]});
+    }
   }
 }
 
@@ -703,25 +612,26 @@ async function refreshAll(){
   loadDashboardStats();
 }
 
-// ── BALANCES ───────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  BALANCES
+// ═══════════════════════════════════════════════════════
 async function loadBalances(){
   if(!wallet) return;
-  // Use direct RPC for reads — works for any wallet (MetaMask, WalletConnect, etc.)
-  const ethHex = await rpcFetch('eth_getBalance', [wallet, 'latest']);
+  const ethHex = await window.ethereum.request({ method:'eth_getBalance', params:[wallet,'latest'] });
   balances['ETH'] = (parseInt(ethHex,16)/1e18).toFixed(4);
 
   const padded = wallet.replace('0x','').padStart(64,'0');
   await Promise.all(TOKENS.filter(t=>t.address!=='native').map(async t => {
     try {
-      const res = await rpcFetch('eth_call', [{ to:t.address, data:'0x70a08231'+padded }, 'latest']);
+      const res = await window.ethereum.request({ method:'eth_call', params:[{to:t.address, data:'0x70a08231'+padded},'latest'] });
       balances[t.symbol] = (Number(BigInt(res||'0x0'))/Math.pow(10,t.decimals)).toFixed(4);
     } catch(e){ balances[t.symbol]='0.0000'; }
   }));
 
   updateBalDisplays();
-  document.getElementById('wrapEthBal').textContent   = balances['ETH']+' ETH';
+  document.getElementById('wrapEthBal').textContent = balances['ETH']+' ETH';
   document.getElementById('unwrapWethBal').textContent = balances['WETH']+' WETH';
-  document.getElementById('statEth').textContent  = balances['ETH'];
+  document.getElementById('statEth').textContent = balances['ETH'];
   document.getElementById('statWeth').textContent = balances['WETH'];
 }
 
@@ -732,8 +642,11 @@ function updateBalDisplays(){
   document.getElementById('balTo').textContent   = 'Balance: '+(balances[symT]||'0');
 }
 
-// ── POOL PRICE READING ─────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  POOL PRICE READING (Synthra V3 sqrtPriceX96)
+// ═══════════════════════════════════════════════════════
 function getPairKey(a, b){
+  // Normalise ETH -> WETH for pool lookups
   const sa = a.symbol==='ETH' ? 'WETH' : a.symbol;
   const sb = b.symbol==='ETH' ? 'WETH' : b.symbol;
   return [sa+'/'+sb, sb+'/'+sa];
@@ -741,7 +654,9 @@ function getPairKey(a, b){
 
 function getPoolAddr(a, b, fee){
   const [key1, key2] = getPairKey(a, b);
-  if(fee===500) return POOLS_500[key1] || POOLS_500[key2] || null;
+  if(fee===500){
+    return POOLS_500[key1] || POOLS_500[key2] || null;
+  }
   const p1 = POOLS[key1], p2 = POOLS[key2];
   if(p1) return p1.addr;
   if(p2) return p2.addr;
@@ -771,19 +686,24 @@ async function checkPool(){
 async function calcFromPool(poolAddr){
   if(!poolAddr) return;
   try {
-    // Use public RPC so pools load even before wallet connection
-    const slot0 = await rpcFetch('eth_call', [{ to:poolAddr, data:'0x3850c7bd' }, 'latest']);
+    // slot0() = 0x3850c7bd -> returns sqrtPriceX96, tick, ...
+    const slot0 = await window.ethereum.request({ method:'eth_call', params:[{to:poolAddr, data:'0x3850c7bd'},'latest'] });
     if(!slot0 || slot0==='0x') return;
 
     const sqrtPriceX96 = BigInt('0x'+slot0.slice(2,66));
     if(sqrtPriceX96 === 0n) return;
 
+    // Price = (sqrtPriceX96 / 2^96)^2
     const Q96 = BigInt(2)**BigInt(96);
     const price_raw = Number(sqrtPriceX96 * sqrtPriceX96) / Number(Q96 * Q96);
 
+    // We need to know which token is token0 vs token1 in the pool
+    // token0 is always the lower address lexicographically
     const addrA = tokFrom.symbol==='ETH' ? '0x33e4191705c386532ba27cBF171Db86919200B94' : tokFrom.address;
     const addrB = tokTo.symbol==='ETH'   ? '0x33e4191705c386532ba27cBF171Db86919200B94' : tokTo.address;
+
     const isFromToken0 = addrA.toLowerCase() < addrB.toLowerCase();
+    // price_raw = token1/token0 if from is token0, else token0/token1
     const price = isFromToken0 ? price_raw : 1/price_raw;
 
     const amtIn = parseFloat(document.getElementById('amtIn').value)||0;
@@ -794,6 +714,7 @@ async function calcFromPool(poolAddr){
       document.getElementById('rateDisplay').textContent = '1 '+tokFrom.symbol+' = '+price.toFixed(6)+' '+tokTo.symbol;
       const minReceived = amtOut * (1 - slippage/100);
       document.getElementById('minOut').textContent = minReceived.toFixed(6)+' '+tokTo.symbol;
+      // Price impact estimate
       const impact = Math.min(amtIn * 0.3, 5).toFixed(2);
       document.getElementById('impactDisplay').textContent = '~'+impact+'%';
       updateUSD();
@@ -805,9 +726,13 @@ async function calcFromPool(poolAddr){
   } catch(e){ console.warn('pool read err:', e); }
 }
 
-// ── APPROVAL ───────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  APPROVAL CHECK
+// ═══════════════════════════════════════════════════════
 async function checkApproval(){
   if(!wallet || !connected) return;
+  
+  // ETH doesn't need approval
   if(tokFrom.address === 'native'){
     needsApproval = false;
     document.getElementById('approveNotice').classList.remove('show');
@@ -819,9 +744,13 @@ async function checkApproval(){
   if(amtIn <= 0) return;
 
   try {
+    const router = routerAddr;
     const padWallet = wallet.replace('0x','').padStart(64,'0');
-    const padRouter = routerAddr.replace('0x','').padStart(64,'0');
-    const res = await rpcFetch('eth_call', [{ to:tokFrom.address, data:'0xdd62ed3e'+padWallet+padRouter }, 'latest']);
+    const padRouter = router.replace('0x','').padStart(64,'0');
+    // allowance(owner, spender) = 0xdd62ed3e
+    const res = await window.ethereum.request({ method:'eth_call', params:[{
+      to:tokFrom.address, data:'0xdd62ed3e'+padWallet+padRouter
+    },'latest']});
     const allowance = BigInt(res||'0x0');
     const needed = BigInt(Math.floor(amtIn * Math.pow(10, tokFrom.decimals)));
     needsApproval = allowance < needed;
@@ -838,16 +767,20 @@ async function checkApproval(){
   } catch(e){ console.warn('allowance check err:', e); }
 }
 
+// ═══════════════════════════════════════════════════════
+//  APPROVE
+// ═══════════════════════════════════════════════════════
 async function doApprove(){
-  if(!connected){ connectWallet(); return; }
+  if(!connected){ await connectWallet(); return; }
   try {
     showToast('Approving '+tokFrom.symbol+'...','info');
+    // approve(spender, amount) = 0x095ea7b3 — approve max uint256
     const MAX = 'f'.repeat(64);
     const padRouter = routerAddr.replace('0x','').padStart(64,'0');
-    const txHash = await rpcRequest({ method:'eth_sendTransaction', params:[{
+    const txHash = await window.ethereum.request({ method:'eth_sendTransaction', params:[{
       from:wallet, to:tokFrom.address,
       data:'0x095ea7b3'+padRouter+MAX,
-      gas:'0x'+(80000).toString(16),
+      gas:'0x'+( 80000).toString(16),
     }]});
     showToast('Approval TX sent...','info');
     const receipt = await waitReceipt(txHash);
@@ -863,30 +796,38 @@ async function doApprove(){
   }
 }
 
-// ── SWAP ───────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  SWAP — Synthra V3 exactInputSingle
+// ═══════════════════════════════════════════════════════
 async function handleSwap(){
-  if(!connected){ connectWallet(); return; }
+  if(!connected){ await connectWallet(); return; }
   if(needsApproval){ showToast('Approve token first!','error'); return; }
 
-  const amtIn  = parseFloat(document.getElementById('amtIn').value);
+  const amtIn = parseFloat(document.getElementById('amtIn').value);
   const amtOut = parseFloat(document.getElementById('amtOut').value);
   if(!amtIn||amtIn<=0){ showToast('Enter an amount','error'); return; }
   if(!currentPoolAddr){ showToast('No pool for this pair','error'); return; }
   if(tokFrom.symbol===tokTo.symbol){ showToast('Select different tokens','error'); return; }
 
   const btn = document.getElementById('mainSwapBtn');
-  btn.disabled = true; btn.textContent = 'Confirm in wallet...';
+  btn.disabled = true; btn.textContent = 'Confirm in MetaMask...';
 
   try {
     const addrIn  = tokFrom.symbol==='ETH' ? '0x33e4191705c386532ba27cBF171Db86919200B94' : tokFrom.address;
     const addrOut = tokTo.symbol==='ETH'   ? '0x33e4191705c386532ba27cBF171Db86919200B94' : tokTo.address;
-    const amtInWei  = BigInt(Math.floor(amtIn  * Math.pow(10, tokFrom.decimals)));
-    const amtOutMin = BigInt(Math.floor(amtOut * (1-slippage/100) * Math.pow(10, tokTo.decimals)));
+    const amtInWei  = BigInt(Math.floor(amtIn  * Math.pow(10, tokFrom.decimals===18?18:tokFrom.decimals)));
+    const amtOutMin = BigInt(Math.floor(amtOut * (1-slippage/100) * Math.pow(10, tokTo.decimals===18?18:tokTo.decimals)));
     const deadline  = BigInt(Math.floor(Date.now()/1000) + 1200);
+    const sqrtPriceLimitX96 = 0n;
 
+    // Synthra: multicall(uint256 deadline, bytes[]) -> 0x5ae401dc
+    // Inner:   exactInputSingle (no deadline in struct) -> 0x04e45aaf
     const enc64 = v => v.toString(16).padStart(64,'0');
+
     const isETHIn  = tokFrom.symbol==='ETH';
     const isETHOut = tokTo.symbol==='ETH';
+
+    // When swapping TO ETH: recipient of swap must be router, then call unwrapWETH9
     const swapRecipient = isETHOut ? routerAddr : wallet;
 
     const innerCall = '04e45aaf'
@@ -898,15 +839,24 @@ async function handleSwap(){
       + enc64(amtOutMin)
       + enc64(0n);
 
+    // Build calls array — if ETH out, add unwrapWETH9(amountMinimum, recipient)
+    // unwrapWETH9(uint256,address) = 0x49404b7c
     const calls = [innerCall];
     if(isETHOut){
-      const unwrap = '49404b7c' + enc64(amtOutMin) + wallet.replace('0x','').padStart(64,'0');
+      const unwrap = '49404b7c'
+        + enc64(amtOutMin)
+        + wallet.replace('0x','').padStart(64,'0');
       calls.push(unwrap);
     }
 
+    // ABI-encode bytes[] with N calls
+    // offset to array data + array length + per-element offsets + data
     const N = calls.length;
+    // offsets block: N words, each pointing to its element
+    // first element starts after N offset words = N*32 bytes from start of array data
     let offsetAcc = N * 32;
-    let offsetsHex = '', dataHex = '';
+    let offsetsHex = '';
+    let dataHex = '';
     for(const call of calls){
       const len = call.length / 2;
       const padded = call.padEnd(Math.ceil(len/32)*32*2,'0');
@@ -915,14 +865,21 @@ async function handleSwap(){
       offsetAcc += 32 + Math.ceil(len/32)*32;
     }
 
+    // multicall(deadline, bytes[]) layout:
+    // selector(4) + deadline(32) + offset_to_arr(32) + arr_len(32) + offsets + data
     const arrData = enc64(0x40n) + enc64(BigInt(N)) + offsetsHex + dataHex;
     const calldata = '0x5ae401dc' + enc64(deadline) + arrData;
 
-    const txParams = { from:wallet, to:routerAddr, data:calldata, gas:'0x'+(400000).toString(16) };
+    const txParams = {
+      from: wallet,
+      to: routerAddr,
+      data: calldata,
+      gas: '0x'+(400000).toString(16),
+    };
     if(isETHIn) txParams.value = '0x'+amtInWei.toString(16);
 
     showToast('Sending swap to Synthra V3...','info');
-    const txHash = await rpcRequest({ method:'eth_sendTransaction', params:[txParams] });
+    const txHash = await window.ethereum.request({ method:'eth_sendTransaction', params:[txParams] });
     btn.textContent = 'Waiting for block...';
     showToast('TX sent: '+short(txHash),'info');
 
@@ -943,19 +900,22 @@ async function handleSwap(){
   btn.disabled=false; updateSwapUI();
 }
 
-// ── WRAP / UNWRAP ──────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  WRAP / UNWRAP (WETH official contract)
+// ═══════════════════════════════════════════════════════
 const WETH_ADDR = '0x33e4191705c386532ba27cBF171Db86919200B94';
 
 async function doWrap(){
-  if(!connected){ connectWallet(); return; }
+  if(!connected){ await connectWallet(); return; }
   const amt = parseFloat(document.getElementById('wrapAmt').value);
   if(!amt||amt<=0){ showToast('Enter amount','error'); return; }
   try {
     showToast('Wrapping ETH...','info');
-    const txHash = await rpcRequest({ method:'eth_sendTransaction', params:[{
+    // deposit() = 0xd0e30db0
+    const txHash = await window.ethereum.request({ method:'eth_sendTransaction', params:[{
       from:wallet, to:WETH_ADDR, data:'0xd0e30db0',
       value:'0x'+BigInt(Math.floor(amt*1e18)).toString(16),
-      gas:'0x'+(80000).toString(16),
+      gas:'0x'+( 80000).toString(16),
     }]});
     const receipt = await waitReceipt(txHash);
     if(receipt?.status==='0x1'){ showToast('Wrapped '+amt+' ETH to WETH','success'); document.getElementById('wrapAmt').value=''; await refreshAll(); }
@@ -963,22 +923,25 @@ async function doWrap(){
 }
 
 async function doUnwrap(){
-  if(!connected){ connectWallet(); return; }
+  if(!connected){ await connectWallet(); return; }
   const amt = parseFloat(document.getElementById('unwrapAmt').value);
   if(!amt||amt<=0){ showToast('Enter amount','error'); return; }
   try {
     showToast('Unwrapping WETH...','info');
+    // withdraw(uint256) = 0x2e1a7d4d
     const amtHex = BigInt(Math.floor(amt*1e18)).toString(16).padStart(64,'0');
-    const txHash = await rpcRequest({ method:'eth_sendTransaction', params:[{
+    const txHash = await window.ethereum.request({ method:'eth_sendTransaction', params:[{
       from:wallet, to:WETH_ADDR, data:'0x2e1a7d4d'+amtHex,
-      gas:'0x'+(80000).toString(16),
+      gas:'0x'+( 80000).toString(16),
     }]});
     const receipt = await waitReceipt(txHash);
     if(receipt?.status==='0x1'){ showToast('Unwrapped '+amt+' WETH to ETH','success'); document.getElementById('unwrapAmt').value=''; await refreshAll(); }
   } catch(e){ if(e.code===4001) showToast('Cancelled','error'); else showToast('Error: '+e.message.substring(0,50),'error'); }
 }
 
-// ── POOLS TAB ──────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  POOLS TAB
+// ═══════════════════════════════════════════════════════
 async function loadPools(){
   const grid = document.getElementById('poolGrid');
   grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);font-family:var(--mono);font-size:0.75rem;padding:20px">Loading pool prices...</div>';
@@ -990,7 +953,7 @@ async function loadPools(){
     const [symA, symB] = key.split('/');
     let priceStr = '—';
     try {
-      const slot0 = await rpcFetch('eth_call', [{ to:pool.addr, data:'0x3850c7bd' }, 'latest']);
+      const slot0 = await (window.ethereum?.request({ method:'eth_call', params:[{to:pool.addr, data:'0x3850c7bd'},'latest']})||Promise.resolve(null));
       if(slot0){
         const sqrtPriceX96 = BigInt('0x'+slot0.slice(2,66));
         if(sqrtPriceX96 > 0n){
@@ -1019,27 +982,34 @@ function selectPool(symA, symB){
   if(tA && tB){
     tokFrom=tA; tokTo=tB;
     switchTab('swap', document.querySelectorAll('.tab')[0]);
-    updateSwapUI(); checkPool();
+    updateSwapUI();
+    checkPool();
     showToast('Pool selected: '+symA+'/'+symB,'success');
   }
 }
 
-// ── HISTORY ────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  HISTORY
+// ═══════════════════════════════════════════════════════
 async function loadHistory(){
   const tbody = document.getElementById('historyBody');
   tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">Loading...</div></td></tr>';
 
   try {
+    // Synthra V3 Swap event: keccak256("Swap(address,address,int256,int256,uint160,uint128,int24)")
+    // We check all known pools
     const poolAddrs = Object.values(POOLS).map(p=>p.addr);
     let rows = [...localHistory];
 
+    // eth_getLogs for swap events from our wallet on known pools
     const swapTopic = '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67';
-    for(const poolAddr of poolAddrs.slice(0,5)){
+    for(const poolAddr of poolAddrs.slice(0,5)){ // limit to avoid rate limit
       try {
-        const logs = await rpcFetch('eth_getLogs', [{
+        const logs = await window.ethereum.request({ method:'eth_getLogs', params:[{
           address:poolAddr, topics:[swapTopic], fromBlock:'0x0', toBlock:'latest'
-        }]);
+        }]});
         for(const log of (logs||[]).slice(-5)){
+          // Find pair name
           const pairName = Object.entries(POOLS).find(([k,v])=>v.addr.toLowerCase()===poolAddr.toLowerCase())?.[0]||'?/?';
           rows.push({ from:pairName.split('/')[0], to:pairName.split('/')[1], amtIn:'on-chain', amtOut:'on-chain', txHash:log.transactionHash, block:parseInt(log.blockNumber,16), wallet:short('0x'+log.topics[2]?.slice(26)||''), fee:'—' });
         }
@@ -1065,7 +1035,9 @@ async function loadHistory(){
   }
 }
 
-// ── DASHBOARD ──────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════════════
 function loadDashboardStats(){
   document.getElementById('dEth').textContent  = balances['ETH']||'—';
   document.getElementById('dWeth').textContent = balances['WETH']||'—';
@@ -1082,11 +1054,13 @@ function loadDashboard(){
     </div>`).join('');
 }
 
-// ── UI HELPERS ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════════════════
 function updateSwapUI(){
   const btn = document.getElementById('mainSwapBtn');
   if(!connected){ btn.textContent='Connect Wallet'; btn.className='main-btn outline'; btn.disabled=false; return; }
-  btn.textContent = 'Swap '+tokFrom.symbol+' → '+tokTo.symbol;
+  btn.textContent = 'Swap '+tokFrom.symbol+' -> '+tokTo.symbol;
   btn.className='main-btn'; btn.disabled=false;
   updateBalDisplays();
   updateTokIcons();
@@ -1104,8 +1078,8 @@ function updateUSD(){
   const PRICES = {ETH:2800,WETH:2800,USDC:1,TSLA:235,AMZN:185,NFLX:620,PLTR:22,AMD:165};
   const amtIn  = parseFloat(document.getElementById('amtIn').value)||0;
   const amtOut = parseFloat(document.getElementById('amtOut').value)||0;
-  document.getElementById('usdFrom').textContent = '≈ $'+(amtIn*(PRICES[tokFrom.symbol]||0)).toFixed(2);
-  document.getElementById('usdTo').textContent   = '≈ $'+(amtOut*(PRICES[tokTo.symbol]||0)).toFixed(2);
+  document.getElementById('usdFrom').textContent = '&#8776; $'+(amtIn*(PRICES[tokFrom.symbol]||0)).toFixed(2);
+  document.getElementById('usdTo').textContent   = '&#8776; $'+(amtOut*(PRICES[tokTo.symbol]||0)).toFixed(2);
 }
 
 async function onAmtChange(){ calcOut(); await checkApproval(); }
@@ -1116,7 +1090,7 @@ function setWrapMax(){ document.getElementById('wrapAmt').value=balances['ETH']|
 function setUnwrapMax(){ document.getElementById('unwrapAmt').value=balances['WETH']||''; }
 function setFee(fee, el){ selectedFee=fee; document.querySelectorAll('.fee-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active'); document.getElementById('feeDisplay').textContent=(fee/10000).toFixed(2)+'%'; checkPool(); }
 function toggleSlip(){ const b=document.getElementById('slipBox'); b.style.display=b.style.display==='none'?'block':'none'; }
-function setSlip(v,el){ slippage=v; document.querySelectorAll('#slipBox .fee-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active'); document.getElementById('slipDisplay').textContent=v+'% ✎'; calcOut(); }
+function setSlip(v,el){ slippage=v; document.querySelectorAll('#slipBox .fee-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active'); document.getElementById('slipDisplay').textContent=v+'% &#9998;'; calcOut(); }
 function short(addr,c=4){ if(!addr)return'—'; return addr.substring(0,c+2)+'...'+addr.substring(addr.length-c); }
 
 // MODAL
@@ -1131,27 +1105,17 @@ document.getElementById('tokenModal').addEventListener('click',function(e){ if(e
 let toastT;
 function showToast(msg,type='info'){ const t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+type; requestAnimationFrame(()=>requestAnimationFrame(()=>t.classList.add('show'))); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),5000); }
 
-// TX POLLING — uses direct RPC so it works with any wallet provider
-async function waitReceipt(hash, max=40){
-  for(let i=0; i<max; i++){
-    await new Promise(r=>setTimeout(r,2500));
-    try {
-      const r = await rpcFetch('eth_getTransactionReceipt', [hash]);
-      if(r) return r;
-    } catch(e){}
-  }
-  return null;
-}
+// TX POLLING
+async function waitReceipt(hash,max=40){ for(let i=0;i<max;i++){ await new Promise(r=>setTimeout(r,2500)); try{ const r=await window.ethereum.request({method:'eth_getTransactionReceipt',params:[hash]}); if(r)return r; }catch(e){} } return null; }
 
-// MetaMask chain-changed event (still useful as fallback)
+// METAMASK EVENTS
 if(window.ethereum){
-  window.ethereum.on('chainChanged', () => location.reload());
+  window.ethereum.on('accountsChanged',accs=>{ if(!accs.length){disconnectWallet();}else{wallet=accs[0];document.getElementById('walletBtn').textContent=short(wallet);refreshAll();} });
+  window.ethereum.on('chainChanged',()=>location.reload());
 }
 
 // INIT
 updateSwapUI();
-// Also try loading pool prices on init (no wallet needed — uses public RPC)
-checkPool();
 </script>
 </body>
 </html>
